@@ -28,7 +28,7 @@ try {
     process.exit(1);
   }
 
-  const collection = generatePostmanCollection(app);
+  const collection = await generatePostmanCollection(app);
   saveCollectionToFile(collection, outputFile);
 
   if (pushToPostman) {

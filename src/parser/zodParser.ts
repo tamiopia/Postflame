@@ -1,13 +1,14 @@
-import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-
-// Example: In the future, parse Zod schemas dynamically.
-// For now, return a default JSON body schema.
+// TODO: Parse Zod v4 schemas into JSON Schema or OpenAPI schema if needed.
+// For now, return a minimal static JSON Schema used as a request body example.
 export function parseZodSchema() {
-  const exampleSchema = z.object({
-    name: z.string(),
-    price: z.number()
-  });
-
-  return zodToJsonSchema(exampleSchema);
+  return {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      price: { type: 'number' }
+    },
+    required: ['name', 'price'],
+    additionalProperties: false,
+    $schema: 'http://json-schema.org/draft-07/schema#'
+  };
 }
