@@ -12,7 +12,7 @@ const outputFile = args.includes('--output') ? args[args.indexOf('--output') + 1
 const pushToPostman = args.includes('--push');
 
 if (!inputFile) {
-  console.error('❌ Usage: hono-postman-gen <path-to-app.ts> [--output postman.json] [--push]');
+  console.error('❌ Usage: postflame <path-to-app.ts> [--output postman.json] [--push]');
   process.exit(1);
 }
 

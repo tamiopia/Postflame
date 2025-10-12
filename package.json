@@ -1,14 +1,16 @@
 {
-  "name": "hono-postman-gen",
+  "name": "postflame",
   "version": "0.1.0",
-  "description": "Generate Postman collections automatically from Hono + Zod routes.",
+  "description": "🔥 Generate Postman collections automatically from Hono + Zod routes.",
   "main": "dist/index.js",
   "bin": {
-    "hono-postman-gen": "./bin/hono-postman-gen.js"
+    "postflame": "./bin/postflame.js"
   },
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/cli/index.ts"
+    "build:test": "tsc --project tsconfig.test.json",
+    "dev": "ts-node src/cli/index.ts",
+    "test:gen": "npm run build:test && postflame dist-test/app.js"
   },
   "keywords": [
     "hono",
