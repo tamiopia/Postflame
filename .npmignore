@@ -1,0 +1,28 @@
+# Source files
+src/
+test/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig.json
+tsconfig.test.json
+.env
+.env.example
+
+# Development files
+node_modules/
+.git/
+.gitignore
+dist-test/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test files
+postman.json
