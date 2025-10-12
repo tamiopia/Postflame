@@ -26,35 +26,52 @@ npx postflame <path-to-app.ts>
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Super Simple Usage
 
-**Important:** Postflame works with compiled JavaScript files, not TypeScript files directly.
-
-First, compile your TypeScript app:
+Just run postflame in your project directory - it will auto-detect your app file!
 
 ```bash
-# Compile your app
-tsc
-
-# Generate Postman collection from the compiled output
-postflame dist/app.js
+# Auto-detect and generate
+postflame generate
 ```
 
-This creates a `postman.json` file in your current directory.
+That's it! Postflame will:
+1. 🔍 Find your app file (app.ts, index.ts, or main.ts)
+2. 📦 Compile TypeScript automatically
+3. 🔥 Generate `postman.json`
+4. ☁️ Auto-upload to Postman if `POSTMAN_API_KEY` is in your `.env`
 
-### Custom Output Path
+### With Auto-Upload to Postman
 
-```bash
-postflame dist/app.js --output my-api.json
+Create a `.env` file in your project root:
+
+```env
+POSTMAN_API_KEY=your_api_key_here
 ```
 
-### Push to Postman
-
-Upload directly to your Postman workspace:
+Then run:
 
 ```bash
-export POSTMAN_API_KEY=your_api_key_here
-postflame dist/app.js --push
+postflame generate
+```
+
+Or force push with the `--push` flag:
+
+```bash
+postflame generate --push
+```
+
+### Custom Options
+
+```bash
+# Specify input file
+postflame generate --input src/app.ts
+
+# Custom output path
+postflame generate --output my-api.json
+
+# Short form
+postflame gen -i src/app.ts -o api.json -p
 ```
 
 ## 📖 Usage Examples
@@ -89,11 +106,8 @@ export { app };
 ### Generate Collection
 
 ```bash
-# Compile TypeScript
-tsc
-
-# Generate collection
-postflame dist/app.js
+# Just run postflame - it handles everything!
+postflame generate
 ```
 
 ### With OpenAPI (Recommended)
@@ -143,21 +157,51 @@ app.doc('/doc', {
 export { app };
 ```
 
-## 🔧 CLI Options
+## 🔧 CLI Commands & Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `<path>` | Path to your Hono app file | Required |
-| `--output <file>` | Output file path | `postman.json` |
-| `--push` | Upload to Postman (requires `POSTMAN_API_KEY`) | `false` |
+### Commands
 
-## 🔑 Postman API Key
+```bash
+postflame generate    # Generate collection (default)
+postflame gen         # Short alias
+postflame g           # Even shorter!
+postflame run         # Alternative alias
+postflame help        # Show help
+```
 
-To use the `--push` feature:
+### Options
 
-1. Go to [Postman API Keys](https://go.postman.co/settings/me/api-keys)
-2. Generate a new API key
-3. Set it as an environment variable:
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--input <file>` | `-i` | Path to app file | Auto-detected |
+| `--output <file>` | `-o` | Output file path | `postman.json` |
+| `--push` | `-p` | Force upload to Postman | Auto if API key in .env |
+
+### Auto-Detection
+
+Postflame searches for these files in order:
+1. `app.ts` in root directory
+2. `index.ts` in root directory  
+3. `main.ts` in root directory
+4. `src/app.ts`
+5. `src/index.ts`
+6. `src/main.ts`
+
+Also checks for `.js` versions of these files.
+
+## 🔑 Postman API Key Setup
+
+### Recommended: Use .env file
+
+Create a `.env` file in your project root:
+
+```env
+POSTMAN_API_KEY=your_api_key_here
+```
+
+Postflame will automatically read this and upload your collection!
+
+### Alternative: Environment Variable
 
 ```bash
 # Linux/Mac
@@ -166,6 +210,12 @@ export POSTMAN_API_KEY=your_key_here
 # Windows (PowerShell)
 $env:POSTMAN_API_KEY="your_key_here"
 ```
+
+### Get Your API Key
+
+1. Go to [Postman API Keys](https://go.postman.co/settings/me/api-keys)
+2. Click "Generate API Key"
+3. Copy and add to your `.env` file
 
 ## 🛠️ Programmatic Usage
 

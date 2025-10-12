@@ -1,45 +1,99 @@
 #!/usr/bin/env node
-import { generatePostmanCollection, saveCollectionToFile } from '../core/generator.js';
-import { uploadToPostman } from '../core/uploader.js';
-import { Hono } from 'hono';
-import path from 'path';
-import { pathToFileURL } from 'url';
-import fs from 'fs';
+import { generateCommand, runCommand } from './commands.js';
 
 const args = process.argv.slice(2);
-const inputFile = args[0];
-const outputFile = args.includes('--output') ? args[args.indexOf('--output') + 1] : 'postman.json';
-const pushToPostman = args.includes('--push');
+const command = args[0];
 
-if (!inputFile) {
-  console.error('❌ Usage: postflame <path-to-app.ts> [--output postman.json] [--push]');
-  process.exit(1);
+// Parse flags
+const getFlag = (flag: string) => {
+  const index = args.indexOf(flag);
+  return index !== -1 ? args[index + 1] : undefined;
+};
+
+const hasFlag = (flag: string) => args.includes(flag);
+
+// Show help
+function showHelp() {
+  console.log(`
+🔥 Postflame - Generate Postman collections from Hono apps
+
+Usage:
+  postflame [command] [options]
+
+Commands:
+  generate, gen, g    Generate Postman collection (default)
+  run, r              Alias for generate
+  help, h             Show this help message
+
+Options:
+  --input, -i <file>  Path to app file (auto-detected if not provided)
+  --output, -o <file> Output file path (default: postman.json)
+  --push, -p          Upload to Postman (requires POSTMAN_API_KEY in .env)
+
+Examples:
+  # Auto-detect app file and generate collection
+  postflame generate
+
+  # Generate and push to Postman
+  postflame generate --push
+
+  # Specify input file
+  postflame generate --input src/app.ts
+
+  # Short form
+  postflame gen -i src/app.ts -o api.json -p
+
+Environment:
+  POSTMAN_API_KEY     Your Postman API key (add to .env file)
+
+Auto-detection:
+  Postflame will automatically search for these files:
+  - app.ts, index.ts, main.ts (in root directory)
+  - src/app.ts, src/index.ts, src/main.ts
+  `);
 }
 
-const resolvedPath = path.resolve(process.cwd(), inputFile);
-const fileUrl = pathToFileURL(resolvedPath).href;
-
-try {
-  const imported = await import(fileUrl);
-  const app = imported.app || imported.default;
-
-  if (!(app instanceof Hono)) {
-    console.error('❌ The imported file must export a Hono app instance named "app" or as default export.');
-    process.exit(1);
+// Main CLI logic
+async function main() {
+  // No command or help
+  if (!command || command === 'help' || command === 'h' || command === '--help' || command === '-h') {
+    showHelp();
+    process.exit(0);
   }
 
-  const collection = await generatePostmanCollection(app);
-  saveCollectionToFile(collection, outputFile);
+  // Parse options
+  const options = {
+    input: getFlag('--input') || getFlag('-i'),
+    output: getFlag('--output') || getFlag('-o'),
+    push: hasFlag('--push') || hasFlag('-p'),
+  };
 
-  if (pushToPostman) {
-    const apiKey = process.env.POSTMAN_API_KEY;
-    if (!apiKey) {
-      console.error('❌ Missing POSTMAN_API_KEY in environment variables.');
-      process.exit(1);
-    }
-    await uploadToPostman(collection, apiKey);
+  // Handle commands
+  switch (command) {
+    case 'generate':
+    case 'gen':
+    case 'g':
+      await generateCommand(options);
+      break;
+
+    case 'run':
+    case 'r':
+      await runCommand(options);
+      break;
+
+    default:
+      // If first arg doesn't look like a command, treat it as a file path (backward compatibility)
+      if (command.endsWith('.ts') || command.endsWith('.js') || command.includes('/') || command.includes('\\')) {
+        await generateCommand({ ...options, input: command });
+      } else {
+        console.error(`❌ Unknown command: ${command}`);
+        console.error('💡 Run "postflame help" for usage information');
+        process.exit(1);
+      }
   }
-} catch (err) {
-  console.error('❌ Failed to import app file:', err);
-  process.exit(1);
 }
+
+main().catch((error) => {
+  console.error('❌ Error:', error.message);
+  process.exit(1);
+});
