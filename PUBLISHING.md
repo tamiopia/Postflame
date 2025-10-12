@@ -1,16 +1,15 @@
-# 📦 Publishing Postflame to npm
+{{ ... }}
 
 ## Pre-Publish Checklist
 
 ### ✅ Completed
 - [x] Package name: `postflame`
-- [x] Version: `0.1.0`
+- [x] Version: `1.0.0`
 - [x] LICENSE file (MIT)
 - [x] README.md with comprehensive docs
 - [x] CHANGELOG.md
 - [x] QUICKSTART.md
 - [x] TypeScript declaration files (.d.ts)
-- [x] .npmignore configured
 - [x] package.json metadata (repository, keywords, etc.)
 - [x] Build script works
 - [x] prepublishOnly script added
@@ -92,13 +91,12 @@ git push --tags
    - Verify version number
 
 3. **Create GitHub release** (optional):
-   - Tag: `v0.1.0`
    - Release notes from CHANGELOG.md
 
 ## Package Info
 
 - **Package Name**: `postflame`
-- **Current Version**: `0.1.0`
+- **Current Version**: `1.0.0`
 - **Registry**: https://registry.npmjs.org
 - **Package URL**: https://www.npmjs.com/package/postflame
 

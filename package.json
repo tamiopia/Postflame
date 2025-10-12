@@ -1,6 +1,6 @@
 {
   "name": "postflame",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "🔥 Generate Postman collections automatically from Hono + Zod routes.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

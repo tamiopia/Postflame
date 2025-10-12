@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - Major Update 🔥
+## [1.0.0] - First Major Release 🔥🎉
 
 ### ✨ New Features
 
