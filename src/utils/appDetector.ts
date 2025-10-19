@@ -1,14 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
-const APP_FILE_NAMES = ['app.ts', 'app.js', 'index.ts', 'index.js', 'main.ts', 'main.js'];
+const APP_FILE_NAMES = ['app.ts', 'app.js', 'index.ts', 'index.js', 'main.ts', 'main.js', 'server.ts', 'server.js'];
 const SEARCH_DIRS = ['', 'src', 'test'];
 
 /**
  * Auto-detect the main app file in the project
- * Searches for app.ts, index.ts, or main.ts in root, src/, and test/ directories
+ * Searches for app.ts, index.ts, main.ts, or server.ts in root, src/, and test/ directories
  */
-export function detectAppFile(cwd: string = process.cwd()): string | null {
+export function detectAppFile(cwd: string = process.cwd(), debug = false): string | null {
   for (const dir of SEARCH_DIRS) {
     const searchPath = path.join(cwd, dir);
     
@@ -18,8 +18,15 @@ export function detectAppFile(cwd: string = process.cwd()): string | null {
       const filePath = path.join(searchPath, fileName);
       
       if (fs.existsSync(filePath)) {
+        if (debug) {
+          console.log(`  Checking: ${path.relative(cwd, filePath)}`);
+        }
         // Quick check: does the file likely contain a Hono app?
-        if (isLikelyAppFile(filePath)) {
+        const isValid = isLikelyAppFile(filePath);
+        if (debug && !isValid) {
+          console.log(`    ❌ Skipped (not a valid Hono app file)`);
+        }
+        if (isValid) {
           return filePath;
         }
       }
@@ -44,8 +51,9 @@ function isLikelyAppFile(filePath: string): boolean {
     const hasAppExport = /export.*app/.test(content) || 
                          /export default/.test(content);
     
-    // Skip files that are just re-exports
-    const isReExportOnly = /^(\s*export \* from|\/\/|\/\*|\s*$)/gm.test(content.trim());
+    // Skip files that are ONLY re-exports (entire file is just export statements)
+    const lines = content.split('\n').filter(line => line.trim() && !line.trim().startsWith('//'));
+    const isReExportOnly = lines.length > 0 && lines.every(line => /^\s*export\s+\*\s+from/.test(line));
     
     return hasHonoImport && hasAppExport && !isReExportOnly;
   } catch {

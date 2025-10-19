@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.1] - 2025-10-19
+
+### 🔧 Improvements
+- **Added `server.ts`/`server.js` detection**: Auto-detection now includes server files
+- **Fixed OpenAPIHono support**: Improved instance checking to work with `OpenAPIHono` and other Hono subclasses
+- **Better error messages**: More helpful debugging output when app export is not found
+
+### 🐛 Bug Fixes
+- Fixed `instanceof Hono` check that was failing for `OpenAPIHono`
+- Now checks for Hono-like properties (`routes`, `fetch`) instead of strict instance checking
+
+---
+
 ## [1.0.0] - First Major Release 🔥🎉
 
 ### ✨ New Features

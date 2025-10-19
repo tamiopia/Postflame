@@ -33,9 +33,10 @@ export async function generateCommand(options: GenerateOptions = {}) {
       process.exit(1);
     }
   } else {
-    const detected = detectAppFile(cwd);
+    console.log('🔍 Searching for app file...');
+    const detected = detectAppFile(cwd, true);
     if (!detected) {
-      console.error('❌ Could not find app file. Searched for: app.ts, index.ts, main.ts in root and src/ directories');
+      console.error('\n❌ Could not find app file. Searched for: app.ts, index.ts, main.ts, server.ts in root and src/ directories');
       console.error('💡 Specify a file manually: postflame generate --input <path>');
       process.exit(1);
     }
@@ -92,8 +93,17 @@ export async function generateCommand(options: GenerateOptions = {}) {
     const imported = await import(fileUrl);
     app = imported.app || imported.default;
     
-    if (!(app instanceof Hono)) {
+    if (!app) {
       console.error('❌ The imported file must export a Hono app instance named "app" or as default export.');
+      console.error('\n📄 File contents preview:');
+      console.error(fs.readFileSync(importPath, 'utf-8').slice(0, 1000));
+      process.exit(1);
+    }
+    
+    // Check if it's a Hono-like object (has routes, fetch, etc.)
+    if (!app.routes && !app.fetch) {
+      console.error('❌ The exported value does not appear to be a Hono app instance.');
+      console.error('   Expected an object with routes or fetch method.');
       process.exit(1);
     }
   } catch (err: any) {

@@ -183,9 +183,11 @@ Postflame searches for these files in order:
 1. `app.ts` in root directory
 2. `index.ts` in root directory  
 3. `main.ts` in root directory
-4. `src/app.ts`
-5. `src/index.ts`
-6. `src/main.ts`
+4. `server.ts` in root directory
+5. `src/app.ts`
+6. `src/index.ts`
+7. `src/main.ts`
+8. `src/server.ts`
 
 Also checks for `.js` versions of these files.
 
