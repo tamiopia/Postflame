@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.3] - 2025-10-19
+
+### 🔧 Improvements
+- **Enhanced debug logging**: Added detailed debug output showing search paths and file checks
+- **Improved auto-detection feedback**: Better visibility into which files are being checked during auto-detection
+- **Updated help text**: CLI help now correctly lists `server.ts` in auto-detection files
+
+### 🐛 Bug Fixes
+- Fixed auto-detection not showing detailed progress when searching for app files
+- Improved error messages to help users understand why auto-detection might fail
+
+---
+
 ## [1.0.1] - 2025-10-19
 
 ### 🔧 Improvements

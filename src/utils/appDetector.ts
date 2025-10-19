@@ -9,24 +9,37 @@ const SEARCH_DIRS = ['', 'src', 'test'];
  * Searches for app.ts, index.ts, main.ts, or server.ts in root, src/, and test/ directories
  */
 export function detectAppFile(cwd: string = process.cwd(), debug = false): string | null {
+  if (debug) {
+    console.log(`  Searching in: ${cwd}`);
+  }
+  
   for (const dir of SEARCH_DIRS) {
     const searchPath = path.join(cwd, dir);
     
-    if (!fs.existsSync(searchPath)) continue;
+    if (!fs.existsSync(searchPath)) {
+      if (debug) {
+        console.log(`  Directory not found: ${dir || 'root'}`);
+      }
+      continue;
+    }
     
     for (const fileName of APP_FILE_NAMES) {
       const filePath = path.join(searchPath, fileName);
       
+      if (debug) {
+        console.log(`  Checking: ${path.relative(cwd, filePath) || fileName}`);
+      }
+      
       if (fs.existsSync(filePath)) {
-        if (debug) {
-          console.log(`  Checking: ${path.relative(cwd, filePath)}`);
-        }
         // Quick check: does the file likely contain a Hono app?
         const isValid = isLikelyAppFile(filePath);
         if (debug && !isValid) {
           console.log(`    ❌ Skipped (not a valid Hono app file)`);
         }
         if (isValid) {
+          if (debug) {
+            console.log(`    ✅ Found valid app file!`);
+          }
           return filePath;
         }
       }

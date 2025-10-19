@@ -48,8 +48,9 @@ Environment:
 
 Auto-detection:
   Postflame will automatically search for these files:
-  - app.ts, index.ts, main.ts (in root directory)
-  - src/app.ts, src/index.ts, src/main.ts
+  - app.ts, index.ts, main.ts, server.ts (in root directory)
+  - src/app.ts, src/index.ts, src/main.ts, src/server.ts
+  - Also checks .js versions of these files
   `);
 }
 
