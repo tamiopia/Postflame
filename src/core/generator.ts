@@ -5,13 +5,13 @@ import { parseZodSchema } from '../parser/zodParser.js';
 export async function generatePostmanCollection(app: Hono, name = 'Hono API') {
   // Try to read OpenAPI JSON from the app's doc endpoint
   try {
-    const res = await (app as any).request?.('/doc');
+    const res = await (app as any).request?.('/api/doc');
     if (res && res.ok) {
       const openapi = await res.json();
       return openApiToPostman(openapi, name);
     }
-  } catch {
-    // Fallback to route-based below
+  } catch (error) {
+    console.warn('⚠️  Failed to fetch OpenAPI doc, using fallback parsing:', (error as Error).message);
   }
 
   // Fallback: route-based generation (no schemas)
@@ -27,7 +27,7 @@ export async function generatePostmanCollection(app: Hono, name = 'Hono API') {
         method: r.method,
         header: [],
         body:
-          r.method === 'POST' || r.method === 'PUT'
+          r.method === 'POST' || r.method === 'PUT' || r.method === 'PATCH'
             ? { mode: 'raw', raw: JSON.stringify(parseZodSchema(), null, 2) }
             : undefined,
         url: {
@@ -65,16 +65,28 @@ function openApiToPostman(openapi: any, name: string) {
       const parameters = [...(methods.parameters || []), ...(op.parameters || [])];
       const queryParams = parameters
         .filter((p: any) => p && p.in === 'query')
-        .map((p: any) => ({ key: p.name, value: '', description: p.description }));
+        .map((p: any) => ({ key: p.name, value: p.example || '', description: p.description }));
 
-      // Build request body from supported content types
+      // Build request body from supported content types, prioritizing examples
       let body: any = undefined;
       const content = op.requestBody?.content || {};
       if (content['application/json']) {
         const json = content['application/json'];
-        const example = json.example || json.examples?.default?.value;
-        if (example) body = { mode: 'raw', raw: JSON.stringify(example, null, 2) };
-        else if (json.schema) body = { mode: 'raw', raw: JSON.stringify(json.schema, null, 2) };
+        // Prioritize example over schema
+        if (json.example) {
+          body = { mode: 'raw', raw: JSON.stringify(json.example, null, 2) };
+        } else if (json.examples && Object.keys(json.examples).length > 0) {
+          // Use the first example if multiple are available
+          const firstExampleKey = Object.keys(json.examples)[0];
+          const firstExample = json.examples[firstExampleKey];
+          if (firstExample.value) {
+            body = { mode: 'raw', raw: JSON.stringify(firstExample.value, null, 2) };
+          } else {
+            body = { mode: 'raw', raw: JSON.stringify(json.schema, null, 2) };
+          }
+        } else if (json.schema) {
+          body = { mode: 'raw', raw: JSON.stringify(json.schema, null, 2) };
+        }
       } else if (content['multipart/form-data']) {
         const mp = content['multipart/form-data'];
         body = { mode: 'formdata', formdata: extractFormDataFromSchema(mp.schema) };
@@ -122,6 +134,7 @@ function openApiToPostman(openapi: any, name: string) {
         response: responses.length ? responses : undefined,
       };
 
+      // Add to folders based on tags
       for (const tag of tagList) {
         ensureFolder(tag).push(item);
       }
@@ -149,7 +162,7 @@ function extractFormDataFromSchema(schema: any): any[] {
     return {
       key,
       type: isFile ? 'file' : 'text',
-      value: isFile ? '' : '',
+      value: prop.example || prop.default || '',
       description: prop.description,
       disabled: required.includes(key) ? false : false,
     };
@@ -160,7 +173,7 @@ function extractUrlEncodedFromSchema(schema: any): any[] {
   if (!schema || schema.type !== 'object' || !schema.properties) return [];
   return Object.entries<any>(schema.properties).map(([key, prop]) => ({
     key,
-    value: '',
+    value: prop.example || prop.default || '',
     description: prop.description,
     type: 'text',
   }));
