@@ -1,156 +1,114 @@
-# 🔥 Postflame Quick Start Guide
+# Postflame Quick Start
 
-## Installation
+## Install
 
 ```bash
 npm install -g postflame
 ```
 
-## Setup (One-Time)
-
-Create a `.env` file in your project root:
+Or use with `npx`:
 
 ```bash
-echo "POSTMAN_API_KEY=your_api_key_here" > .env
+npx postflame --help
 ```
 
-Get your API key from: https://go.postman.co/settings/me/api-keys
+## Recommended Setup (Any Framework)
 
-## Usage
-
-### Super Simple (Recommended)
-
-Just run this in your project directory:
+Run inside your project:
 
 ```bash
-postflame generate
+postflame init
 ```
 
-That's it! 🎉
+This creates `postflame.config.js` with framework and source settings.
 
-Postflame will:
-1. 🔍 Auto-detect your app file (app.ts, index.ts, or main.ts)
-2. 📦 Compile TypeScript automatically
-3. 🔥 Generate `postman.json`
-4. ☁️ Upload to Postman (if API key is in .env)
-
-### With Options
+Then generate collections:
 
 ```bash
-# Specify input file
-postflame generate --input src/server.ts
-
-# Custom output
-postflame gen -o my-collection.json
-
-# Force push to Postman
-postflame g -p
-
-# All together
-postflame gen -i src/app.ts -o api.json -p
+postflame sync
 ```
 
-## Your Hono App
+Watch changes continuously:
 
-Make sure your app exports a Hono instance:
-
-```typescript
-import { Hono } from 'hono';
-
-export const app = new Hono();
-
-// or
-
-export default app;
+```bash
+postflame watch
 ```
 
-## With OpenAPI (Recommended)
+## Microservices / Multi-App Base URLs
 
-For better documentation with examples:
+When prompted in `postflame init`, choose multiple app URLs and provide values like:
 
-```typescript
-import { OpenAPIHono } from '@hono/zod-openapi';
+```text
+admin=http://localhost:8000/api,business=http://localhost:8001/api,core=http://localhost:8002/api,customer=http://localhost:8003/api
+```
 
-const app = new OpenAPIHono();
+## Hono Direct Generate Mode
 
-// Define your routes with OpenAPI specs
-app.openapi(
-  {
-    method: 'get',
-    path: '/users',
-    tags: ['Users'],
-    responses: {
-      200: {
-        description: 'List of users',
-      },
-    },
+If your project exports a Hono app directly, you can use:
+
+```bash
+postflame generate --input src/app.ts
+```
+
+Useful options:
+
+```bash
+postflame generate --all
+postflame generate --app-urls admin=http://localhost:8000/api,business=http://localhost:8001/api
+postflame generate --push
+```
+
+## Postman Cloud Push
+
+Set these in `.env` or your shell:
+
+```bash
+POSTMAN_API_KEY=your_api_key
+POSTMAN_COLLECTION_ID=your_collection_uid
+```
+
+With both set, `postflame sync` pushes updates automatically.
+
+## Minimal Config Example
+
+```js
+module.exports = {
+  framework: 'auto',
+  sources: {
+    include: ['src/**/*.controller.ts', 'src/**/routes.ts', 'src/**/*.routes.ts'],
+    exclude: ['**/*.spec.ts', '**/*.test.ts', 'node_modules/**', 'dist/**', 'build/**'],
+    baseUrl: 'http://localhost:3000/api'
   },
-  (c) => c.json({ users: [] })
-);
-
-// Important: Add the doc endpoint
-app.doc('/doc', {
-  openapi: '3.0.0',
-  info: { title: 'My API', version: '1.0.0' },
-});
-
-export { app };
+  output: {
+    postman: {
+      enabled: true,
+      outputPath: './collections/postman-collection.json'
+    },
+    insomnia: {
+      enabled: true,
+      outputPath: './collections/insomnia-collection.json'
+    }
+  }
+};
 ```
 
 ## Troubleshooting
 
-### "Could not find app file"
+### No files matched
 
-Make sure you have one of these files:
-- `app.ts` or `app.js` in root or `src/`
-- `index.ts` or `index.js` in root or `src/`
-- `main.ts` or `main.js` in root or `src/`
-
-Or specify the file manually:
-```bash
-postflame generate --input path/to/your/app.ts
-```
-
-### "No app export found"
-
-Your file must export a Hono instance:
-```typescript
-export const app = new Hono();
-// or
-export default app;
-```
-
-### "POSTMAN_API_KEY not found"
-
-Create a `.env` file:
-```bash
-POSTMAN_API_KEY=your_key_here
-```
-
-Or use the `--push` flag only when you want to upload.
-
-## Commands Cheat Sheet
+- Confirm your `sources.include` patterns in `postflame.config.js`
+- Run with a project root explicitly:
 
 ```bash
-postflame generate          # Full command
-postflame gen              # Short version
-postflame g                # Shortest
-postflame run              # Alternative
-postflame help             # Show help
-
-# With options
--i, --input <file>         # Specify app file
--o, --output <file>        # Output file
--p, --push                 # Force upload to Postman
+postflame sync --cwd /absolute/path/to/project
 ```
 
-## Next Steps
+### Endpoint count looks wrong
 
-1. ✅ Install postflame
-2. ✅ Add POSTMAN_API_KEY to .env
-3. ✅ Run `postflame generate`
-4. 🎉 Check your Postman workspace!
+- Switch `framework` to `auto` or the specific framework
+- Verify controller/route files are under included directories
+- Check excluded patterns are not too broad
 
----
+### No Postman push
 
-Need help? Check the full [README.md](./README.md) or open an issue on GitHub.
+- Ensure both `POSTMAN_API_KEY` and `POSTMAN_COLLECTION_ID` are set
