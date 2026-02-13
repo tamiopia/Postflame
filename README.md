@@ -1,256 +1,168 @@
-# 🔥 Postflame
+# Postflame
 
-**Postflame** is a powerful CLI tool that automatically generates Postman collections from your Hono applications with Zod schema validation. Transform your API routes into ready-to-use Postman collections in seconds!
+Postflame is a CLI for generating and syncing API collections from backend code.
 
-## ✨ Features
+It supports Hono, NestJS, and Express projects, including NestJS gRPC/microservice controller patterns.
 
-- 🚀 **Automatic Generation** - Converts Hono routes to Postman collections instantly
-- 📝 **OpenAPI Support** - Reads from `@hono/zod-openapi` endpoints for rich documentation
-- 🔄 **Fallback Parsing** - Works even without OpenAPI by parsing routes directly
-- ☁️ **Direct Upload** - Push collections to Postman workspace via API
-- 🎯 **Zod Integration** - Leverages Zod schemas for request/response examples
-- 📦 **Multiple Content Types** - Supports JSON, form-data, and URL-encoded bodies
-- 🏷️ **Smart Organization** - Groups endpoints by tags into folders
+## Features
 
-## 📦 Installation
+- Framework-aware extraction: Hono, NestJS, Express
+- gRPC/microservice endpoint extraction from NestJS decorators
+- Multi-app and monorepo-friendly scanning (`src`, `apps`, `services`, `libs`)
+- Postman and Insomnia collection generation
+- App-specific base URLs for microservice environments
+- Folder organization by app/module structure
+- Configurable sync and watch workflows
+- Optional Postman Cloud push
+
+## Installation
 
 ```bash
 npm install -g postflame
 ```
 
-Or use with npx:
+Or use via `npx`:
 
 ```bash
-npx postflame <path-to-app.ts>
+npx postflame --help
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
-### Super Simple Usage
-
-Just run postflame in your project directory - it will auto-detect your app file!
+1. Initialize config:
 
 ```bash
-# Auto-detect and generate
-postflame generate
+postflame init
 ```
 
-That's it! Postflame will:
-1. 🔍 Find your app file (app.ts, index.ts, or main.ts)
-2. 📦 Compile TypeScript automatically
-3. 🔥 Generate `postman.json`
-4. ☁️ Auto-upload to Postman if `POSTMAN_API_KEY` is in your `.env`
-
-### With Auto-Upload to Postman
-
-Create a `.env` file in your project root:
-
-```env
-POSTMAN_API_KEY=your_api_key_here
-```
-
-Then run:
+2. Run a one-time sync:
 
 ```bash
-postflame generate
+postflame sync
 ```
 
-Or force push with the `--push` flag:
+3. Watch for file changes:
 
 ```bash
+postflame watch
+```
+
+## CLI Commands
+
+```bash
+postflame init                 # Create postflame.config.js
+postflame sync                 # Generate collections from configured sources
+postflame watch                # Watch and auto-sync
+postflame generate             # Hono app export-based generation
+postflame run                  # Alias for generate
+```
+
+### Common Sync Options
+
+```bash
+postflame sync -c ./postflame.config.js
+postflame sync --cwd /path/to/project
+postflame sync --postman-key <KEY> --postman-id <COLLECTION_UID>
+```
+
+### Generate Command (Hono app export flow)
+
+```bash
+postflame generate --input src/app.ts
+postflame generate --all
+postflame generate --base-url http://localhost:3000/api
+postflame generate --app-urls admin=http://localhost:8000/api,business=http://localhost:8001/api
 postflame generate --push
 ```
 
-### Custom Options
+## Configuration
 
-```bash
-# Specify input file
-postflame generate --input src/app.ts
+Postflame uses `postflame.config.js` in your project root.
 
-# Custom output path
-postflame generate --output my-api.json
+Example:
 
-# Short form
-postflame gen -i src/app.ts -o api.json -p
-```
-
-## 📖 Usage Examples
-
-### Example Hono App
-
-```typescript
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
-
-const app = new Hono();
-
-const ProductSchema = z.object({
-  name: z.string(),
-  price: z.number(),
-  description: z.string().optional(),
-});
-
-app.get('/products', (c) => {
-  return c.json({ products: [] });
-});
-
-app.post('/products', zValidator('json', ProductSchema), (c) => {
-  const data = c.req.valid('json');
-  return c.json({ success: true, product: data });
-});
-
-export { app };
-```
-
-### Generate Collection
-
-```bash
-# Just run postflame - it handles everything!
-postflame generate
-```
-
-### With OpenAPI (Recommended)
-
-For richer documentation with examples and descriptions:
-
-```typescript
-import { OpenAPIHono } from '@hono/zod-openapi';
-import { z } from 'zod';
-
-const app = new OpenAPIHono();
-
-app.openapi(
-  {
-    method: 'post',
-    path: '/products',
-    tags: ['Products'],
-    request: {
-      body: {
-        content: {
-          'application/json': {
-            schema: z.object({
-              name: z.string().openapi({ example: 'iPhone 15' }),
-              price: z.number().openapi({ example: 999 }),
-            }),
-          },
-        },
-      },
-    },
-    responses: {
-      200: {
-        description: 'Product created successfully',
-      },
-    },
+```js
+module.exports = {
+  framework: 'auto', // auto | nestjs | express | hono
+  sources: {
+    include: [
+      'src/**/routes.{js,ts}',
+      'src/**/*.routes.{js,ts}',
+      'src/**/*.controller.ts',
+      'src/**/*router.{js,ts}',
+      'apps/**/src/**/routes.{js,ts}',
+      'apps/**/src/**/*.routes.{js,ts}',
+      'apps/**/src/**/*.controller.ts',
+      'apps/**/src/**/*router.{js,ts}',
+      'services/**/src/**/routes.{js,ts}',
+      'services/**/src/**/*.routes.{js,ts}',
+      'services/**/src/**/*.controller.ts',
+      'services/**/src/**/*router.{js,ts}',
+      'libs/**/src/**/routes.{js,ts}',
+      'libs/**/src/**/*.routes.{js,ts}',
+      'libs/**/src/**/*.controller.ts',
+      'libs/**/src/**/*router.{js,ts}'
+    ],
+    exclude: ['**/*.spec.ts', '**/*.test.ts', 'node_modules/**', 'dist/**', 'build/**'],
+    baseUrl: 'http://localhost:3000/api',
+    appBaseUrls: {
+      admin: 'http://localhost:8000/api',
+      business: 'http://localhost:8001/api',
+      core: 'http://localhost:8002/api',
+      customer: 'http://localhost:8003/api'
+    }
   },
-  (c) => {
-    return c.json({ success: true });
+  output: {
+    postman: {
+      enabled: true,
+      outputPath: './collections/postman-collection.json'
+    },
+    insomnia: {
+      enabled: true,
+      outputPath: './collections/insomnia-collection.json'
+    }
+  },
+  watch: {
+    enabled: true,
+    debounce: 300
+  },
+  merge: {
+    markDeprecated: true
+  },
+  organization: {
+    groupBy: 'folder' // folder | tags
   }
-);
-
-// Important: Add the doc endpoint
-app.doc('/doc', {
-  openapi: '3.0.0',
-  info: { title: 'My API', version: '1.0.0' },
-});
-
-export { app };
+};
 ```
 
-## 🔧 CLI Commands & Options
-
-### Commands
+## Environment Variables
 
 ```bash
-postflame generate    # Generate collection (default)
-postflame gen         # Short alias
-postflame g           # Even shorter!
-postflame run         # Alternative alias
-postflame help        # Show help
+POSTMAN_API_KEY=your_api_key
+POSTMAN_COLLECTION_ID=your_collection_uid
 ```
 
-### Options
+If both are present, `sync` will push updates to Postman Cloud.
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--input <file>` | `-i` | Path to app file | Auto-detected |
-| `--output <file>` | `-o` | Output file path | `postman.json` |
-| `--push` | `-p` | Force upload to Postman | Auto if API key in .env |
+## Programmatic Usage
 
-### Auto-Detection
-
-Postflame searches for these files in order:
-1. `app.ts` in root directory
-2. `index.ts` in root directory  
-3. `main.ts` in root directory
-4. `server.ts` in root directory
-5. `src/app.ts`
-6. `src/index.ts`
-7. `src/main.ts`
-8. `src/server.ts`
-
-Also checks for `.js` versions of these files.
-
-## 🔑 Postman API Key Setup
-
-### Recommended: Use .env file
-
-Create a `.env` file in your project root:
-
-```env
-POSTMAN_API_KEY=your_api_key_here
-```
-
-Postflame will automatically read this and upload your collection!
-
-### Alternative: Environment Variable
-
-```bash
-# Linux/Mac
-export POSTMAN_API_KEY=your_key_here
-
-# Windows (PowerShell)
-$env:POSTMAN_API_KEY="your_key_here"
-```
-
-### Get Your API Key
-
-1. Go to [Postman API Keys](https://go.postman.co/settings/me/api-keys)
-2. Click "Generate API Key"
-3. Copy and add to your `.env` file
-
-## 🛠️ Programmatic Usage
-
-You can also use Postflame as a library:
-
-```typescript
-import { generatePostmanCollection, saveCollectionToFile } from 'postflame';
+```ts
+import { syncOnce, generatePostmanCollection, saveCollectionToFile } from 'postflame';
 import { app } from './app';
 
 const collection = await generatePostmanCollection(app, 'My API');
-saveCollectionToFile(collection, 'output.json');
+saveCollectionToFile(collection, './postman.json');
+
+await syncOnce({
+  configPath: './postflame.config.js'
+});
 ```
 
-## 📋 Requirements
+## Notes
 
-- Node.js 16+
-- A Hono application
-- TypeScript (recommended)
+- `sync` is the recommended workflow for mixed/large codebases.
+- `generate` is best for direct Hono app export-based generation.
 
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open issues or submit PRs.
-
-## 📄 License
+## License
 
 MIT
-
-## 🔗 Links
-
-- [Hono Framework](https://hono.dev)
-- [Zod](https://zod.dev)
-- [Postman](https://postman.com)
-
----
-
-Made with 🔥 by Tamiopia

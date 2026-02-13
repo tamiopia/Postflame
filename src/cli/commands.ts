@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { generatePostmanCollection, saveCollectionToFile } from '../core/generator.js';
 import { uploadToPostman } from '../core/uploader.js';
-import { detectAppFile, getDisplayPath } from '../utils/appDetector.js';
+import { detectAppFiles, getDisplayPath, type DetectedAppFile } from '../utils/appDetector.js';
 import { Hono } from 'hono';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -16,109 +16,160 @@ interface GenerateOptions {
   input?: string;
   output?: string;
   push?: boolean;
+  all?: boolean;
+  baseUrl?: string;
+  appUrls?: string;
   cwd?: string;
 }
 
+interface LoadedApp {
+  app: Hono;
+  appName: string;
+  filePath: string;
+}
+
+function normalizeAppKey(value: string): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function parseAppUrls(value?: string): Record<string, string> {
+  if (!value) return {};
+  const out: Record<string, string> = {};
+  const parts = value.split(',').map((v) => v.trim()).filter(Boolean);
+  for (const part of parts) {
+    const idx = part.indexOf('=');
+    if (idx <= 0) continue;
+    const app = part.slice(0, idx).trim();
+    const url = part.slice(idx + 1).trim();
+    if (!app || !url) continue;
+    out[normalizeAppKey(app)] = url;
+  }
+  return out;
+}
+
+function mapDetectedApp(filePath: string, cwd: string): DetectedAppFile {
+  const detected = detectAppFiles(cwd, false);
+  const absPath = path.resolve(filePath);
+  const exact = detected.find((entry) => path.resolve(entry.filePath) === absPath);
+  if (exact) return exact;
+
+  const parentName = path.basename(path.dirname(absPath)) || 'App';
+  return { filePath: absPath, appName: parentName.charAt(0).toUpperCase() + parentName.slice(1) };
+}
+
+function resolveTargetApps(options: GenerateOptions, cwd: string): DetectedAppFile[] {
+  if (options.input) {
+    const inputPath = path.resolve(cwd, options.input);
+    if (!fs.existsSync(inputPath)) {
+      console.error(`❌ File or directory not found: ${options.input}`);
+      process.exit(1);
+    }
+
+    const stat = fs.statSync(inputPath);
+    if (stat.isFile()) {
+      return [mapDetectedApp(inputPath, cwd)];
+    }
+
+    const nested = detectAppFiles(inputPath, true);
+    if (nested.length === 0) {
+      console.error(`❌ No app files found in directory: ${options.input}`);
+      process.exit(1);
+    }
+    return nested;
+  }
+
+  console.log('🔍 Searching for app file(s)...');
+  const detected = detectAppFiles(cwd, true);
+  if (detected.length === 0) {
+    console.error('\n❌ Could not find app files.');
+    console.error('💡 Tried scanning root, src, apps, services, packages, and libs directories.');
+    console.error('💡 Specify input manually: postflame generate --input <path>');
+    process.exit(1);
+  }
+
+  if (!options.all && detected.length > 1) {
+    console.log(`📦 Found ${detected.length} apps. Using the first detected app. Pass --all to include all apps.`);
+    return [detected[0]];
+  }
+  return detected;
+}
 
 export async function generateCommand(options: GenerateOptions = {}) {
   const cwd = options.cwd || process.cwd();
-  
-  // Step 1: Find the app file
-  let appFilePath: string;
-  
-  if (options.input) {
-    appFilePath = path.resolve(cwd, options.input);
-    if (!fs.existsSync(appFilePath)) {
-      console.error(`❌ File not found: ${options.input}`);
-      process.exit(1);
-    }
-  } else {
-    console.log('🔍 Searching for app file...');
-    const detected = detectAppFile(cwd, true);
-    if (!detected) {
-      console.error('\n❌ Could not find app file. Searched for: app.ts, index.ts, main.ts, server.ts in root and src/ directories');
-      console.error('💡 Specify a file manually: postflame generate --input <path>');
-      process.exit(1);
-    }
-    appFilePath = detected;
-  }
-  
-  const displayPath = getDisplayPath(appFilePath, cwd);
-  console.log(`🔍 Found app file: ${displayPath}`);
-  
- 
-  const ext = path.extname(appFilePath);
-  let importPath = appFilePath;
-  
-  if (ext === '.ts') {
+  const targets = resolveTargetApps(options, cwd);
+  const loadedApps: LoadedApp[] = [];
+
+  // Compile TypeScript once when possible.
+  const hasTsInput = targets.some((entry) => path.extname(entry.filePath) === '.ts');
+  let tsconfig: any = null;
+  const tsconfigPath = path.join(cwd, 'tsconfig.json');
+  if (hasTsInput && fs.existsSync(tsconfigPath)) {
     console.log('📦 Compiling TypeScript...');
     try {
-      // Check if tsconfig.json exists
-      const tsconfigPath = path.join(cwd, 'tsconfig.json');
-      if (fs.existsSync(tsconfigPath)) {
-        execSync('npx tsc --noEmit false', { cwd, stdio: 'inherit' });
-        
-        // Try to find the compiled output
-        const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf-8'));
-        const outDir = tsconfig.compilerOptions?.outDir || 'dist';
-        const rootDir = tsconfig.compilerOptions?.rootDir || 'src';
-        
-        // Calculate the compiled file path
-        const relativePath = path.relative(path.join(cwd, rootDir), appFilePath);
-        const compiledPath = path.join(cwd, outDir, relativePath.replace('.ts', '.js'));
-        
-        if (fs.existsSync(compiledPath)) {
-          importPath = compiledPath;
-          console.log(`✅ Compiled to: ${getDisplayPath(compiledPath, cwd)}`);
-        } else {
-          console.log('⚠️  Could not find compiled output, attempting direct import with tsx...');
-          // Use tsx to run TypeScript directly
-          importPath = appFilePath;
-        }
-      } else {
-        console.log('⚠️  No tsconfig.json found, using tsx for direct import...');
-      }
+      execSync('npx tsc --noEmit false', { cwd, stdio: 'inherit' });
+      tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf-8'));
     } catch (error: any) {
       console.error('⚠️  Compilation warning:', error.message);
-      console.log('Attempting to continue with tsx...');
+      console.log('Attempting to continue with direct imports...');
     }
   }
-  
-  
-  console.log(' Loading app...');
-  let app: Hono;
-  
-  try {
-    const fileUrl = pathToFileURL(importPath).href;
-    const imported = await import(fileUrl);
-    app = imported.app || imported.default;
-    
-    if (!app) {
-      console.error('❌ The imported file must export a Hono app instance named "app" or as default export.');
-      console.error('\n📄 File contents preview:');
-      console.error(fs.readFileSync(importPath, 'utf-8').slice(0, 1000));
-      process.exit(1);
+
+  for (const target of targets) {
+    const appFilePath = path.resolve(target.filePath);
+    const displayPath = getDisplayPath(appFilePath, cwd);
+    console.log(`🔍 Found app file: ${displayPath} (${target.appName})`);
+
+    const ext = path.extname(appFilePath);
+    let importPath = appFilePath;
+    if (ext === '.ts' && tsconfig) {
+      const outDir = tsconfig.compilerOptions?.outDir || 'dist';
+      const rootDir = tsconfig.compilerOptions?.rootDir || 'src';
+      const relativePath = path.relative(path.join(cwd, rootDir), appFilePath);
+      const compiledPath = path.join(cwd, outDir, relativePath.replace('.ts', '.js'));
+      if (fs.existsSync(compiledPath)) {
+        importPath = compiledPath;
+      }
     }
-    
-    // Check if it's a Hono-like object (has routes, fetch, etc.)
-    if (!app.routes && !app.fetch) {
-      console.error('❌ The exported value does not appear to be a Hono app instance.');
-      console.error('   Expected an object with routes or fetch method.');
-      process.exit(1);
+
+    try {
+      const fileUrl = pathToFileURL(importPath).href;
+      const imported = await import(fileUrl);
+      const app = imported.app || imported.default;
+
+      if (!app) {
+        console.error(`❌ ${displayPath} does not export "app" or default app export.`);
+        continue;
+      }
+      if (!app.routes && !app.fetch) {
+        console.error(`❌ ${displayPath} export is not a Hono app instance.`);
+        continue;
+      }
+
+      loadedApps.push({ app, appName: target.appName, filePath: appFilePath });
+    } catch (err: any) {
+      console.error(`❌ Failed to import ${displayPath}:`, err.message);
     }
-  } catch (err: any) {
-    console.error('❌ Failed to import app file:', err.message);
-    console.error('\n💡 Make sure your app exports a Hono instance:');
-    console.error('   export const app = new Hono();');
-    console.error('   // or');
-    console.error('   export default app;');
+  }
+
+  if (loadedApps.length === 0) {
+    console.error('❌ No valid Hono app exports were loaded.');
     process.exit(1);
   }
-  
-  // Step 4: Generate collection
+
   console.log('🔥 Generating Postman collection...');
   const collectionName = path.basename(cwd) + ' API';
-  const collection = await generatePostmanCollection(app, collectionName);
+  const appUrls = {
+    ...parseAppUrls(process.env.POSTFLAME_APP_URLS),
+    ...parseAppUrls(options.appUrls)
+  };
+  const baseUrl = options.baseUrl || process.env.POSTFLAME_BASE_URL || 'http://localhost:3000/api';
+  const collection = await generatePostmanCollection(loadedApps, collectionName, {
+    baseUrl,
+    appBaseUrls: appUrls
+  });
   
   // Step 5: Save to file
   const outputFile = options.output || 'postman.json';
