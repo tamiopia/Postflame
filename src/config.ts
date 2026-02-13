@@ -5,6 +5,17 @@ import { pathToFileURL } from 'url';
 
 const ALWAYS_EXCLUDE = ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.d.ts'];
 const CONFIG_FILE_NAME = 'postflame.config.js';
+const LEGACY_CONFIG_FILE_NAME = 'post-api-sync.config.js';
+
+async function pickConfigFile(baseDir) {
+  const primary = path.resolve(baseDir, CONFIG_FILE_NAME);
+  if (await fs.pathExists(primary)) return primary;
+
+  const legacy = path.resolve(baseDir, LEGACY_CONFIG_FILE_NAME);
+  if (await fs.pathExists(legacy)) return legacy;
+
+  return primary;
+}
 
 const DEFAULT_INCLUDE = [
   'src/**/routes.{js,ts}',
@@ -63,18 +74,18 @@ async function resolveConfigPath(configPath, baseDir) {
       const stat = await fs.stat(abs);
       if (stat.isDirectory()) {
         cwd = abs;
-        return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
+        return { path: await pickConfigFile(cwd), baseDir: cwd };
       }
       return { path: abs, baseDir: path.dirname(abs) };
     }
     if (!path.extname(abs)) {
       cwd = abs;
-      return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
+      return { path: await pickConfigFile(cwd), baseDir: cwd };
     }
     return { path: abs, baseDir: cwd };
   }
 
-  return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
+  return { path: await pickConfigFile(cwd), baseDir: cwd };
 }
 
 async function importUserConfig(configFilePath) {
