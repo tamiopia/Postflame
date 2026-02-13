@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import { pathToFileURL } from 'url';
 
 const ALWAYS_EXCLUDE = ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.d.ts'];
+const CONFIG_FILE_NAME = 'postflame.config.js';
 
 const DEFAULT_INCLUDE = [
   'src/**/routes.{js,ts}',
@@ -62,18 +63,18 @@ async function resolveConfigPath(configPath, baseDir) {
       const stat = await fs.stat(abs);
       if (stat.isDirectory()) {
         cwd = abs;
-        return { path: path.resolve(cwd, 'post-api-sync.config.js'), baseDir: cwd };
+        return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
       }
       return { path: abs, baseDir: path.dirname(abs) };
     }
     if (!path.extname(abs)) {
       cwd = abs;
-      return { path: path.resolve(cwd, 'post-api-sync.config.js'), baseDir: cwd };
+      return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
     }
     return { path: abs, baseDir: cwd };
   }
 
-  return { path: path.resolve(cwd, 'post-api-sync.config.js'), baseDir: cwd };
+  return { path: path.resolve(cwd, CONFIG_FILE_NAME), baseDir: cwd };
 }
 
 async function importUserConfig(configFilePath) {
