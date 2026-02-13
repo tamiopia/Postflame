@@ -27,7 +27,10 @@ Commands:
 
 Options:
   --input, -i <file>  Path to app file (auto-detected if not provided)
+  --all, -a           Generate from all detected app files
   --output, -o <file> Output file path (default: postman.json)
+  --base-url <url>    Base URL variable value (default: http://localhost:3000/api)
+  --app-urls <value>  App URL map (app=url,comma-separated)
   --push, -p          Upload to Postman (requires POSTMAN_API_KEY in .env)
 
 Examples:
@@ -39,6 +42,12 @@ Examples:
 
   # Specify input file
   postflame generate --input src/app.ts
+
+  # Generate for all detected apps
+  postflame generate --all
+
+  # Configure base URLs for microservices
+  postflame generate --all --app-urls admin=http://localhost:8000/api,business=http://localhost:8001/api
 
   # Short form
   postflame gen -i src/app.ts -o api.json -p
@@ -66,6 +75,9 @@ async function main() {
   const options = {
     input: getFlag('--input') || getFlag('-i'),
     output: getFlag('--output') || getFlag('-o'),
+    all: hasFlag('--all') || hasFlag('-a'),
+    baseUrl: getFlag('--base-url'),
+    appUrls: getFlag('--app-urls'),
     push: hasFlag('--push') || hasFlag('-p'),
   };
 
