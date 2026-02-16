@@ -546,7 +546,8 @@ async function extractNestJsEndpoints(filePath) {
           bodySchema = getRpcBodySchema(paramList, dtoSchemas);
         }
 
-        const method = httpMethod || 'POST';
+        const method = httpMethod
+          || (rpcMeta && rpcMeta.kind && rpcMeta.kind.startsWith('grpc') ? 'GRPC' : 'POST');
         const endpointSummary = summary || (rpcMeta ? rpcMeta.summary : undefined);
         const endpointDescription = description || (rpcMeta ? rpcMeta.description : `${method} ${fullPath}`);
 

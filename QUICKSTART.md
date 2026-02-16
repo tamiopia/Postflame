@@ -69,6 +69,23 @@ POSTMAN_COLLECTION_ID=your_collection_uid
 
 With both set, `postflame sync` pushes updates automatically.
 
+For multiple users/collections, configure `output.postman.targets` in `postflame.config.js`:
+
+```js
+module.exports = {
+  output: {
+    postman: {
+      enabled: true,
+      outputPath: './collections/postman-collection.json',
+      targets: [
+        { label: 'alice', apiKeyEnv: 'POSTMAN_API_KEY_ALICE', collectionIdEnv: 'POSTMAN_COLLECTION_ID_ALICE' },
+        { label: 'bob', apiKeyEnv: 'POSTMAN_API_KEY_BOB', collectionIdEnv: 'POSTMAN_COLLECTION_ID_BOB' }
+      ]
+    }
+  }
+};
+```
+
 ## Minimal Config Example
 
 ```js
