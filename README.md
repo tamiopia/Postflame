@@ -115,7 +115,19 @@ module.exports = {
   output: {
     postman: {
       enabled: true,
-      outputPath: './collections/postman-collection.json'
+      outputPath: './collections/postman-collection.json',
+      targets: [
+        {
+          label: 'alice',
+          apiKeyEnv: 'POSTMAN_API_KEY_ALICE',
+          collectionIdEnv: 'POSTMAN_COLLECTION_ID_ALICE'
+        },
+        {
+          label: 'bob',
+          apiKeyEnv: 'POSTMAN_API_KEY_BOB',
+          collectionIdEnv: 'POSTMAN_COLLECTION_ID_BOB'
+        }
+      ]
     },
     insomnia: {
       enabled: true,
@@ -137,12 +149,23 @@ module.exports = {
 
 ## Environment Variables
 
+Single target (legacy):
+
 ```bash
 POSTMAN_API_KEY=your_api_key
 POSTMAN_COLLECTION_ID=your_collection_uid
 ```
 
-If both are present, `sync` will push updates to Postman Cloud.
+Multiple targets:
+
+```bash
+POSTMAN_API_KEY_ALICE=alice_key
+POSTMAN_COLLECTION_ID_ALICE=alice_collection_uid
+POSTMAN_API_KEY_BOB=bob_key
+POSTMAN_COLLECTION_ID_BOB=bob_collection_uid
+```
+
+`sync` will push to every valid target in `output.postman.targets`.
 
 ## Programmatic Usage
 

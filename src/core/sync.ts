@@ -21,9 +21,7 @@ async function syncOnce({ configPath, baseDir, postmanKey, postmanId } = {}) {
   try {
     const { config, baseDir: resolvedBase } = await loadConfig(configPath, baseDir);
     const cwd = resolvedBase || process.cwd();
-
-    const pmKey = postmanKey || process.env.POSTMAN_API_KEY || (config.output && config.output.postman && config.output.postman.apiKey);
-    const pmId = postmanId || process.env.POSTMAN_COLLECTION_ID || (config.output && config.output.postman && config.output.postman.collectionId);
+    const postmanTargets = resolvePostmanTargets({ config, postmanKey, postmanId });
 
     const include = normalizeIncludePatterns(config.sources.include || [], cwd);
     const exclude = Array.from(new Set([
@@ -86,18 +84,25 @@ async function syncOnce({ configPath, baseDir, postmanKey, postmanId } = {}) {
       await fs.outputJson(outPath, merged, { spaces: 2 });
       success(`Postman collection written to ${path.relative(process.cwd(), outPath)}`);
 
-      if (pmKey && pmId) {
-        info(`Pushing to Postman Cloud (ID: ${pmId})...`);
-        try {
-          await pushToPostman(merged, pmKey, pmId);
-          success('Successfully synced to Postman Cloud!');
-        } catch (err) {
-          error(`Failed to sync to Postman Cloud: ${err.message}`);
+      if (postmanTargets.length > 0) {
+        const validTargets = postmanTargets.filter((target) => target.apiKey && target.collectionId);
+        const invalidTargets = postmanTargets.filter((target) => !target.apiKey || !target.collectionId);
+
+        for (const invalid of invalidTargets) {
+          warn(`Skipping Postman target "${invalid.label}": Missing API Key or Collection ID.`);
+          if (!invalid.apiKey) warn('  -> API key is missing');
+          if (!invalid.collectionId) warn('  -> Collection ID is missing');
         }
-      } else if (pmKey || pmId) {
-        warn('Skipping Postman Cloud sync: Missing API Key or Collection ID.');
-        if (!pmKey) warn('  -> POSTMAN_API_KEY is missing');
-        if (!pmId) warn('  -> POSTMAN_COLLECTION_ID is missing');
+
+        for (const target of validTargets) {
+          info(`Pushing to Postman Cloud (${target.label}, ID: ${target.collectionId})...`);
+          try {
+            await pushToPostman(merged, target.apiKey, target.collectionId);
+            success(`Successfully synced "${target.label}" to Postman Cloud!`);
+          } catch (err) {
+            error(`Failed to sync "${target.label}" to Postman Cloud: ${err.message}`);
+          }
+        }
       }
     }
 
@@ -150,6 +155,75 @@ async function readJsonIfExists(filePath) {
     }
   }
   return null;
+}
+
+function cleanValue(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function envValue(name) {
+  const key = cleanValue(name);
+  if (!key) return '';
+  return cleanValue(process.env[key]);
+}
+
+function normalizeTarget(input, fallbackLabel) {
+  const label = cleanValue(input && input.label) || fallbackLabel;
+  const apiKey = cleanValue(input && input.apiKey) || envValue(input && input.apiKeyEnv);
+  const collectionId = cleanValue(input && input.collectionId) || envValue(input && input.collectionIdEnv);
+  return { label, apiKey, collectionId };
+}
+
+function dedupeTargets(targets) {
+  const seen = new Set();
+  const out = [];
+
+  for (const target of targets) {
+    const key = `${target.apiKey || ''}::${target.collectionId || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(target);
+  }
+
+  return out;
+}
+
+function resolvePostmanTargets({ config, postmanKey, postmanId } = {}) {
+  const outputPostman = config && config.output && config.output.postman ? config.output.postman : {};
+  const targets = [];
+
+  if (postmanKey || postmanId) {
+    targets.push(normalizeTarget({
+      label: 'cli',
+      apiKey: postmanKey,
+      collectionId: postmanId
+    }, 'cli'));
+  }
+
+  if (process.env.POSTMAN_API_KEY || process.env.POSTMAN_COLLECTION_ID) {
+    targets.push(normalizeTarget({
+      label: 'env',
+      apiKey: process.env.POSTMAN_API_KEY,
+      collectionId: process.env.POSTMAN_COLLECTION_ID
+    }, 'env'));
+  }
+
+  if (outputPostman.apiKey || outputPostman.collectionId) {
+    targets.push(normalizeTarget({
+      label: 'config',
+      apiKey: outputPostman.apiKey,
+      collectionId: outputPostman.collectionId
+    }, 'config'));
+  }
+
+  if (Array.isArray(outputPostman.targets)) {
+    outputPostman.targets.forEach((target, idx) => {
+      targets.push(normalizeTarget(target || {}, `target-${idx + 1}`));
+    });
+  }
+
+  return dedupeTargets(targets);
 }
 
 export { syncOnce };
